@@ -1,0 +1,6 @@
+{
+  "name": "GreenCare Hospital Portal",
+  "description": "A responsive, modern hospital website with user authentication, doctor directories, department exploration, appointment scheduling, medical report uploads, and an admin management dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

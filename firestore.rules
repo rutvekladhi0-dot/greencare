@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow read/write access to all collections to ensure robust local and sandbox-compatible operations
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /doctors/{doctorId} {
+      allow read, write: if true;
+    }
+
+    match /departments/{departmentId} {
+      allow read, write: if true;
+    }
+
+    match /appointments/{appointmentId} {
+      allow read, write: if true;
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if true;
+    }
+  }
+}
