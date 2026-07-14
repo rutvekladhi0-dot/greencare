@@ -11,7 +11,7 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { 
-  getFirestore, 
+  initializeFirestore, 
   doc, 
   setDoc, 
   getDoc, 
@@ -32,7 +32,9 @@ import config from '../../firebase-applet-config.json';
 // Initialize Firebase
 const app = initializeApp(config);
 export const auth = getAuth(app);
-export const db = config.firestoreDatabaseId ? getFirestore(app, config.firestoreDatabaseId) : getFirestore(app);
+export const db = config.firestoreDatabaseId 
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, config.firestoreDatabaseId)
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
 
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
@@ -127,8 +129,8 @@ export const signInWithGoogle = async () => {
     const userDoc = await getDoc(userDocRef);
     
     let role: 'patient' | 'admin' = 'patient';
-    // Make first user or specific emails admin for testing, or check existing
-    if (user.email === 'rutvekladhi0@gmail.com' || user.email?.startsWith('admin')) {
+    // Make only rutvekladhi0@gmail.com admin
+    if (user.email === 'rutvekladhi0@gmail.com') {
       role = 'admin';
     } else if (userDoc.exists()) {
       role = userDoc.data().role || 'patient';
@@ -192,9 +194,14 @@ export const signUpWithEmail = async (email: string, password: string, name: str
     // 2. Generate a custom local UID
     const uid = 'local-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
 
-    let finalRole = role;
-    if (cleanEmail === 'rutvekladhi0@gmail.com' || cleanEmail.startsWith('admin')) {
+    let finalRole: 'patient' | 'admin' = 'patient';
+    if (cleanEmail === 'rutvekladhi0@gmail.com') {
       finalRole = 'admin';
+      if (password !== 'Rutvek#123') {
+        const err = new Error("Administrator password must be exactly Rutvek#123");
+        (err as any).code = 'auth/invalid-password';
+        throw err;
+      }
     }
 
     const dbProfile = {
@@ -232,6 +239,79 @@ export const signUpWithEmail = async (email: string, password: string, name: str
 export const loginWithEmail = async (email: string, password: string) => {
   try {
     const cleanEmail = email.toLowerCase().trim();
+    
+    // Auto-provision or verify master admin
+    if (cleanEmail === 'rutvekladhi0@gmail.com') {
+      if (password !== 'Rutvek#123') {
+        const err = new Error("Invalid email or password.");
+        (err as any).code = 'auth/invalid-credential';
+        throw err;
+      }
+      
+      const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        const uid = 'admin-rutvek-master';
+        const dbProfile = {
+          uid: uid,
+          email: cleanEmail,
+          displayName: 'Rutvek Ladhi (Admin)',
+          photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`,
+          role: 'admin' as const,
+          createdAt: serverTimestamp(),
+          _password: 'Rutvek#123'
+        };
+        await setDoc(doc(db, 'users', uid), dbProfile);
+        
+        const localProfile: UserProfile = {
+          uid: uid,
+          email: cleanEmail,
+          displayName: 'Rutvek Ladhi (Admin)',
+          photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`,
+          role: 'admin',
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem('current_user_profile', JSON.stringify(localProfile));
+        notifyAuthListeners(localProfile);
+        return localProfile;
+      } else {
+        const userDoc = snapshot.docs[0];
+        const uid = userDoc.id;
+        const data = userDoc.data();
+        
+        // Update document to make sure it has the admin role and correct password stored
+        const updatedDbProfile = {
+          ...data,
+          role: 'admin' as const,
+          _password: 'Rutvek#123'
+        };
+        await setDoc(doc(db, 'users', uid), updatedDbProfile, { merge: true });
+        
+        let localCreatedAt = new Date().toISOString();
+        if (data.createdAt) {
+          if (typeof data.createdAt.toDate === 'function') {
+            localCreatedAt = data.createdAt.toDate().toISOString();
+          } else if (data.createdAt.seconds) {
+            localCreatedAt = new Date(data.createdAt.seconds * 1000).toISOString();
+          } else {
+            localCreatedAt = String(data.createdAt);
+          }
+        }
+        
+        const localProfile: UserProfile = {
+          uid: uid,
+          email: cleanEmail,
+          displayName: data.displayName || 'Rutvek Ladhi (Admin)',
+          photoURL: data.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`,
+          role: 'admin',
+          createdAt: localCreatedAt
+        };
+        localStorage.setItem('current_user_profile', JSON.stringify(localProfile));
+        notifyAuthListeners(localProfile);
+        return localProfile;
+      }
+    }
     
     // 1. Query for the user document in Firestore
     const q = query(collection(db, 'users'), where('email', '==', cleanEmail));

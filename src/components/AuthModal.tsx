@@ -141,32 +141,6 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     }
   };
 
-  const handleQuickDemoLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const profile = await loginWithEmail('admin@greencare.com', 'admin123');
-      setSuccessMsg("Logged in successfully as Admin!");
-      setTimeout(() => {
-        onSuccess(profile);
-        onClose();
-      }, 1000);
-    } catch (err: any) {
-      try {
-        const profile = await signUpWithEmail('admin@greencare.com', 'admin123', 'Rutvek Ladhi (Admin)', 'admin');
-        setSuccessMsg("Created and logged in successfully as Admin!");
-        setTimeout(() => {
-          onSuccess(profile);
-          onClose();
-        }, 1000);
-      } catch (innerErr: any) {
-        setError("Failed to process quick demo login. Please use the form below.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
       <div 
@@ -262,17 +236,6 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
               </svg>
               <span>Continue with Google</span>
             </button>
-
-            <button
-              type="button"
-              onClick={handleQuickDemoLogin}
-              disabled={loading}
-              className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3 px-4 rounded-xl text-sm font-bold shadow-md shadow-emerald-100 transition-all cursor-pointer disabled:opacity-50"
-              id="quick-demo-login-btn"
-            >
-              <Sparkles className="h-4.5 w-4.5 text-emerald-100 animate-pulse" />
-              <span>One-Click Admin Demo Login</span>
-            </button>
           </div>
 
           <div className="flex items-center my-4">
@@ -345,38 +308,6 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
               </div>
             </div>
 
-            {activeTab === 'register' && (
-              <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Select Role
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRole('patient')}
-                    className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all cursor-pointer ${
-                      role === 'patient'
-                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    Patient
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('admin')}
-                    className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-all cursor-pointer ${
-                      role === 'admin'
-                        ? 'border-amber-500 bg-amber-50/50 text-amber-700'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    Admin (Test)
-                  </button>
-                </div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={loading}
@@ -387,17 +318,6 @@ export default function AuthModal({ onClose, onSuccess }: AuthModalProps) {
               <span>{loading ? 'Processing...' : activeTab === 'login' ? 'Sign In' : 'Create Account'}</span>
             </button>
           </form>
-
-          {/* Test Account Helper text */}
-          <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl text-[11px] text-slate-500 space-y-1">
-            <span className="font-bold flex items-center gap-1 text-slate-700">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-              Testing Tip:
-            </span>
-            <p>
-              You can create an **Admin** profile above to test full dashboard capabilities, or sign in with any email starting with <code className="bg-slate-100 px-1 py-0.5 rounded text-amber-700 font-mono">admin</code> to automatically get admin permissions.
-            </p>
-          </div>
         </div>
       </div>
     </div>
