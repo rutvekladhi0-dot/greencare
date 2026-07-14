@@ -134,7 +134,7 @@ export const signInWithGoogle = async () => {
       role = userDoc.data().role || 'patient';
     }
 
-    const profile: UserProfile = {
+    const dbProfile = {
       uid: user.uid,
       email: user.email,
       displayName: user.displayName || 'Patient',
@@ -143,12 +143,33 @@ export const signInWithGoogle = async () => {
       createdAt: userDoc.exists() ? userDoc.data().createdAt : serverTimestamp()
     };
 
-    await setDoc(userDocRef, profile, { merge: true });
+    await setDoc(userDocRef, dbProfile, { merge: true });
     
-    localStorage.setItem('current_user_profile', JSON.stringify(profile));
-    notifyAuthListeners(profile);
+    let localCreatedAt = new Date().toISOString();
+    if (userDoc.exists() && userDoc.data().createdAt) {
+      const dbCreatedAt = userDoc.data().createdAt;
+      if (typeof dbCreatedAt.toDate === 'function') {
+        localCreatedAt = dbCreatedAt.toDate().toISOString();
+      } else if (dbCreatedAt.seconds) {
+        localCreatedAt = new Date(dbCreatedAt.seconds * 1000).toISOString();
+      } else {
+        localCreatedAt = String(dbCreatedAt);
+      }
+    }
 
-    return profile;
+    const localProfile: UserProfile = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || 'Patient',
+      photoURL: user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.uid}`,
+      role: role,
+      createdAt: localCreatedAt
+    };
+
+    localStorage.setItem('current_user_profile', JSON.stringify(localProfile));
+    notifyAuthListeners(localProfile);
+
+    return localProfile;
   } catch (error: any) {
     console.error("Error signing in with Google: ", error);
     throw error;
@@ -176,25 +197,32 @@ export const signUpWithEmail = async (email: string, password: string, name: str
       finalRole = 'admin';
     }
 
-    const profile: UserProfile = {
+    const dbProfile = {
       uid: uid,
       email: cleanEmail,
       displayName: name,
       photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`,
       role: finalRole,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      _password: password
     };
 
     // 3. Save directly to Firestore users collection
-    await setDoc(doc(db, 'users', uid), {
-      ...profile,
-      _password: password
-    });
+    await setDoc(doc(db, 'users', uid), dbProfile);
 
-    localStorage.setItem('current_user_profile', JSON.stringify(profile));
-    notifyAuthListeners(profile);
+    const localProfile: UserProfile = {
+      uid: uid,
+      email: cleanEmail,
+      displayName: name,
+      photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${uid}`,
+      role: finalRole,
+      createdAt: new Date().toISOString()
+    };
 
-    return profile;
+    localStorage.setItem('current_user_profile', JSON.stringify(localProfile));
+    notifyAuthListeners(localProfile);
+
+    return localProfile;
   } catch (error: any) {
     console.error("Error signing up with email fallback: ", error);
     throw error;
@@ -224,13 +252,24 @@ export const loginWithEmail = async (email: string, password: string) => {
       throw err;
     }
 
+    let localCreatedAt = new Date().toISOString();
+    if (userData.createdAt) {
+      if (typeof userData.createdAt.toDate === 'function') {
+        localCreatedAt = userData.createdAt.toDate().toISOString();
+      } else if (userData.createdAt.seconds) {
+        localCreatedAt = new Date(userData.createdAt.seconds * 1000).toISOString();
+      } else {
+        localCreatedAt = String(userData.createdAt);
+      }
+    }
+
     const profile: UserProfile = {
       uid: userData.uid,
       email: userData.email,
       displayName: userData.displayName,
       photoURL: userData.photoURL,
       role: userData.role,
-      createdAt: userData.createdAt
+      createdAt: localCreatedAt
     };
 
     localStorage.setItem('current_user_profile', JSON.stringify(profile));
@@ -255,9 +294,32 @@ export const logoutUser = async () => {
 
 // 2. Fetch User Profile
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  if (userDoc.exists()) {
-    return userDoc.data() as UserProfile;
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      let localCreatedAt = new Date().toISOString();
+      if (data.createdAt) {
+        if (typeof data.createdAt.toDate === 'function') {
+          localCreatedAt = data.createdAt.toDate().toISOString();
+        } else if (data.createdAt.seconds) {
+          localCreatedAt = new Date(data.createdAt.seconds * 1000).toISOString();
+        } else {
+          localCreatedAt = String(data.createdAt);
+        }
+      }
+      return {
+        uid: data.uid,
+        email: data.email || null,
+        displayName: data.displayName || null,
+        photoURL: data.photoURL || null,
+        role: data.role || 'patient',
+        phone: data.phone || undefined,
+        createdAt: localCreatedAt
+      };
+    }
+  } catch (err) {
+    console.error("Error in getUserProfile: ", err);
   }
   return null;
 };
